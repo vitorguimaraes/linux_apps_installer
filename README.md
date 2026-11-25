@@ -282,10 +282,15 @@ Troca os ícones dos tipos de arquivo JavaScript, CSS, HTML, YAML, Dockerfile, M
 bash src/dev-icons.sh
 ```
 
-Para desfazer:
+Para desfazer (rode da raiz do projeto). Remove só os arquivos que o script copiou, sem apagar o que mais você tenha em
+`~/.local/share/icons/Yaru`:
 
 ```bash
-rm -r ~/.local/share/icons/Yaru ~/.local/share/mime/packages/dev-icons.xml
+for icon in DevIcons/*.svg DevIcons/*.png; do
+    find ~/.local/share/icons/Yaru -path '*/mimetypes/*' -name "$(basename "$icon")" -delete
+done
+find ~/.local/share/icons/Yaru -type d -empty -delete
+rm ~/.local/share/mime/packages/dev-icons.xml
 update-mime-database ~/.local/share/mime
 ```
 
