@@ -11,6 +11,13 @@ if ! command -v flatpak >/dev/null 2>&1; then
 fi
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
+# The menu needs zenity. It comes with Ubuntu desktop, but not with every minimal install,
+# and without it the selection would silently come back empty
+if ! command -v zenity >/dev/null 2>&1; then
+    printf "\nInstalling zenity...\n\n"
+    sudo apt install zenity -y || { printf "Could not install zenity, which the menu needs. Nothing was done.\n"; exit 1; }
+fi
+
 installed="Already installed"
 not_installed="Not installed"
 
