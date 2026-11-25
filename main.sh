@@ -30,6 +30,9 @@ function checks() {
     dockercompose_check=$(dpkg -s docker-compose-plugin 2>/dev/null | grep "Status: install ok installed")
     git_check=$(whereis git)
     node_check=$(whereis node)
+    # Claude Code (native installer puts it in ~/.local/bin) with the statusline script active in its settings
+    claude_check=$(command -v claude || { [[ -x "$HOME/.local/bin/claude" ]] && echo "$HOME/.local/bin/claude"; })
+    claude_statusline_check=$(grep -s '"command"[[:space:]]*:[[:space:]]*"~/.claude/statusline.sh"' "$HOME/.claude/settings.json")
     zsh_check=$(whereis zsh)
     ghostty_check=$(command -v ghostty)
     starship_check=$(command -v starship)
@@ -57,6 +60,12 @@ function checks() {
         array[node]=$installed
     else
         array[node]=$not_installed
+    fi
+
+    if [[ -n "$claude_check" && -n "$claude_statusline_check" && -x "$HOME/.claude/statusline.sh" ]]; then
+        array[claude]=$installed
+    else
+        array[claude]=$not_installed
     fi
 
     if [[ "$zsh_check" == *"/usr/bin/zsh"* &&
@@ -117,13 +126,14 @@ checks
 to_install=$(zenity --list \
     --checklist \
     --width 350 \
-    --height 480 \
+    --height 510 \
     --title "Apps Installer" \
     --text "<b>Choose apps to install</b>" \
     --column "" --column "Apps" --column "Installed?"\
     False "Docker" "${array[docker]}" \
     False "Git" "${array[git]}" \
     False "Node" "${array[node]}" \
+    False "Claude Code" "${array[claude]}" \
     False "Modern Terminal" "${array[modern_terminal]}" \
     False "Dracula Theme" "${array[dracula_theme]}" \
     False "VS Code" "${array[vscode]}" \
@@ -143,6 +153,9 @@ if [[ "$to_install" == *"Git"* ]]; then
 fi
 if [[ "$to_install" == *"Node"* ]]; then
     bash src/node.sh
+fi
+if [[ "$to_install" == *"Claude Code"* ]]; then
+    bash src/claude.sh
 fi
 if [[ "$to_install" == *"Modern Terminal"* ]]; then
     bash src/modern-terminal.sh

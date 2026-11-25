@@ -17,6 +17,7 @@ Você roda um único comando, escolhe o que quer em uma janela de seleção (zen
 - [Pacote padrão (`default-pack`)](#pacote-padrão-default-pack)
 - [Atalhos de teclado configurados](#atalhos-de-teclado-configurados)
 - [Modern Terminal em detalhes](#modern-terminal-em-detalhes)
+- [Claude Code e statusline em detalhes](#claude-code-e-statusline-em-detalhes)
 - [Tema Dracula em detalhes](#tema-dracula-em-detalhes)
 - [Remove Junk Apps](#remove-junk-apps)
 - [Script que não está no menu](#script-que-não-está-no-menu)
@@ -93,6 +94,7 @@ main.sh
 | **Docker** | `src/docker.sh` | Repositório oficial da Docker (`apt`) | Adiciona a chave GPG e o repositório oficial, instala `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin` e `docker-compose-plugin`. Roda `hello-world` para validar. Cria `~/.docker/config.json` com um formato customizado para `docker ps` (só se você ainda não tiver o arquivo). Adiciona seu usuário ao grupo `docker` (efeito após novo login). |
 | **Git** | `src/git.sh` | PPA `git-core/ppa` | Instala a versão mais recente do Git e cria os aliases globais `br` (branch), `sw` (switch), `st` (status), `cm` (commit), `ps` (push) e `pu` (pull). |
 | **Node** | `src/node.sh` | [nvm](https://github.com/nvm-sh/nvm) (clone da última tag) | Instala o nvm em `~/.nvm`, adiciona o carregamento dele ao `~/.bashrc` e `~/.zshrc` e instala o Node.js mais recente (`nvm install node`). Instala o Git antes, se faltar. |
+| **Claude Code** | `src/claude.sh` | Instalador nativo oficial (`claude.ai/install.sh`) | Instala o Claude Code (se faltar) e uma statusline em Powerline com cores Dracula, em script bash. [Detalhes abaixo](#claude-code-e-statusline-em-detalhes). |
 | **Modern Terminal** | `src/modern-terminal.sh` → `modern-terminal/setup-ghostty.sh` | `apt`, `snap`, GitHub | Ghostty + zsh + Starship + eza + fzf + FiraCode Nerd Font, tudo com tema Dracula. [Detalhes abaixo](#modern-terminal-em-detalhes). |
 | **Dracula Theme** | `src/dracula-theme.sh` | GitHub (zip do tema) | Tema GTK/GNOME Shell Dracula, cor de destaque roxa e ícones Yaru-magenta. [Detalhes abaixo](#tema-dracula-em-detalhes). |
 | **VS Code** | `src/vscode.sh` | Repositório oficial da Microsoft (`apt`) | Instala o `code`. Como vem de um repositório `apt`, o `apt upgrade` mantém o VS Code atualizado. |
@@ -110,6 +112,7 @@ main.sh
 | Docker | `docker-ce` **e** `docker-compose-plugin` instalados via `dpkg` |
 | Git | `whereis git` encontra `/usr/bin/git` |
 | Node | `whereis node` encontra um caminho com `versions/node/` (instalação via nvm) |
+| Claude Code | `claude` encontrado, `statusLine` do `~/.claude/settings.json` apontando para `~/.claude/statusline.sh` e esse script executável |
 | Modern Terminal | `zsh`, `ghostty`, `starship`, `eza`, `fzf` e a fonte FiraCode Nerd presentes |
 | Dracula Theme | `gtk-theme` do GNOME contém "Dracula" |
 | VS Code | pacote `code` instalado via `dpkg` |
@@ -231,6 +234,53 @@ sozinho no navegador ao fim da instalação.
 
 ---
 
+## Claude Code e statusline em detalhes
+
+Instalado por `src/claude.sh`. A statusline é a barra que o Claude Code mostra abaixo da caixa de entrada. Aqui ela é um
+**script bash** (`claude/statusline.sh`, cerca de 50 linhas, só precisa de `jq`) em estilo **Powerline**, com as cores do
+Dracula e uma cor de fundo por item. Não usa Node nem pacotes de terceiros:
+
+```
+ Sonnet 5.5   Thinking: high   Ctx Used: 42%   5h: ▓▓▓░░│░░░░ 27%   Weekly: 61% 
+```
+
+| Item | Campo que o Claude Code envia | Cor de fundo |
+|---|---|---|
+| Modelo | `model.display_name` | ciano `#8be9fd` |
+| Esforço de raciocínio | `effort.level` | roxo `#bd93f9` |
+| Contexto usado | `context_window.used_percentage` | laranja `#ffb86c` |
+| Limite de 5 horas, com **marcador de tempo** | `rate_limits.five_hour.used_percentage` e `resets_at` | rosa `#ff79c6` |
+| Limite semanal | `rate_limits.seven_day.used_percentage` | amarelo `#f1fa8c` |
+
+No limite de 5 horas, o `▓` mostra quanto você já usou e o `│` mostra em que ponto da janela de 5 horas você está. Com o
+preenchimento atrás do marcador, você está gastando menos do que o tempo permitiria; se o preenchimento passar do marcador,
+está gastando mais rápido que o relógio. Os percentuais aparecem como números inteiros.
+
+Um item que o Claude Code não enviou some junto com a seta dele. Os limites de uso só existem em contas **Pro ou Max**, depois
+da primeira resposta da sessão, e o esforço de raciocínio só em modelos que o suportam.
+
+**O que o instalador faz, em ordem**
+
+1. **Claude Code:** se o comando `claude` não existir, baixa o instalador oficial (`https://claude.ai/install.sh`) para uma
+   pasta temporária e o executa. Se já existir, não reinstala (ele se atualiza sozinho; para atualizar na hora, `claude update`).
+2. **jq:** instala pelo `apt` se faltar.
+3. **Script da statusline:** copia `claude/statusline.sh` para `~/.claude/statusline.sh`. Se o arquivo já existir com outro
+   conteúdo (por exemplo, se você o editou), guarda um backup `statusline.sh.bak.<data-hora>` antes.
+4. **Ativação:** grava `statusLine` em `~/.claude/settings.json` (`"command": "~/.claude/statusline.sh"`, `"padding": 0` e
+   `"refreshInterval": 10`, este só em Claude Code 2.1.97 ou mais novo, e um valor seu é mantido). As outras chaves do arquivo
+   são mantidas. Se já existir outro `statusLine`, ele é substituído, depois de um backup. Um JSON inválido no `settings.json`
+   interrompe o passo sem alterar o arquivo.
+5. **Teste:** renderiza a linha com dados de exemplo e mostra o resultado. Se não sair nada, o instalador termina com erro.
+
+**Para mudar o visual,** edite `~/.claude/statusline.sh` (ou `claude/statusline.sh` aqui no projeto e rode a opção de novo).
+As cores ficam no começo do script, na função `bg`, e os rótulos nas linhas de cada item. Rodar a opção **Claude Code** de novo
+sobrescreve o script instalado com o do projeto, guardando um backup do que você tinha.
+
+**Requisitos do visual:** o Powerline usa o glifo `U+E0B0` de fonte Nerd Font. O **Modern Terminal** instala a FiraCode Nerd Font
+e a configura no Ghostty. Em outro terminal ou fonte, as setas aparecem como quadrados.
+
+---
+
 ## Tema Dracula em detalhes
 
 `src/dracula-theme.sh` instala o [tema GTK Dracula](https://github.com/dracula/gtk) **apenas para o seu usuário**
@@ -314,6 +364,7 @@ linux_apps_installer/
 │   ├── docker.sh
 │   ├── git.sh
 │   ├── node.sh
+│   ├── claude.sh                    #   Claude Code + statusline
 │   ├── modern-terminal.sh           #   Wrapper do setup-ghostty.sh + verificação
 │   ├── dracula-theme.sh
 │   ├── vscode.sh
@@ -325,6 +376,8 @@ linux_apps_installer/
 │   ├── chrome.sh                    #   Usado pelo default-pack
 │   ├── remove-junk-apps.sh
 │   └── dev-icons.sh                 #   Fora do menu
+├── claude/
+│   └── statusline.sh                # Statusline do Claude Code (Powerline, cores Dracula)
 ├── modern-terminal/
 │   └── setup-ghostty.sh             # Instala e configura Ghostty/zsh/Starship/...
 ├── DevIcons/                        # Ícones e tipos MIME para dev-icons.sh
@@ -352,6 +405,10 @@ linux_apps_installer/
 | `~/.local/share/themes/Dracula`, `~/.config/gtk-4.0/` | Dracula Theme | Tema e CSS do GTK4 |
 | `~/.docker/config.json` | Docker | Formato do `docker ps` (só se não existir) |
 | `~/.nvm` | Node | Instalação do nvm e do Node |
+| `~/.local/bin/claude`, `~/.local/share/claude` | Claude Code | Instalação nativa do Claude Code (só se ele não existir) |
+| `~/.claude/settings.json` | Claude Code | Chave `statusLine` mesclada, o resto é mantido (com backup quando muda) |
+| `~/.claude/statusline.sh` | Claude Code | Script da statusline, reescrito a cada execução (com backup se você mudou) |
+| Pacote `jq` (`apt`) | Claude Code | Só se ainda não estiver instalado |
 | `~/.ObsidianVault` | Obsidian | Clone do cofre de notas |
 | `~/.hidden` | default-pack | Oculta a pasta `snap` |
 | `gsettings` (dconf) | default-pack, Dracula, Modern Terminal, DBeaver, apps Flatpak | Tema, ícones, luz noturna, favoritos do dock, atalhos de teclado |
@@ -405,6 +462,8 @@ Pontos que são do código atual, para você não ser surpreendido:
   Discord mesmo que você não tenha instalado esses apps. O atalho existe, mas não abre nada até o app ser instalado.
 - **Obsidian clona um repositório pessoal** (`vitorguimaraes/ObsidianVault`). Se for usar em outra conta, troque a URL
   em `src/obsidian.sh`.
+- **A statusline só aparece em fonte Nerd Font:** as setas do Powerline são um glifo dessa família. Sem o Modern Terminal
+  (ou outra Nerd Font no terminal), elas viram quadrados.
 - **Ghostty usa snap:** o `setup-ghostty.sh` instala o Ghostty com `snap install ghostty --classic`.
 - **Ubuntu antigo:** o histórico do projeto registra que o tema Dracula já foi desativado por conflito com o Ubuntu 22.04.
   O instalador foi reescrito depois, mas não há confirmação de que esse conflito esteja resolvido nessa versão.
@@ -440,6 +499,13 @@ gsettings set org.gnome.shell.extensions.user-theme name 'Dracula'
 **Quero voltar a configuração do terminal ao que era antes**
 Os backups ficam ao lado dos originais, como `~/.zshrc.bak.<data-hora>`, `~/.config/starship.toml.bak.<data-hora>` etc.
 Copie o backup de volta por cima do arquivo atual.
+
+**A statusline do Claude Code não aparece ou está vazia**
+Confira se `command -v jq` responde e se `~/.claude/statusline.sh` existe e é executável; se não, rode a opção **Claude Code**
+de novo. Para ver a linha com dados de exemplo:
+`echo '{"model":{"display_name":"Sonnet 5.5"},"context_window":{"used_percentage":42}}' | ~/.claude/statusline.sh`. Sem nenhum
+dado o script não imprime nada, de propósito. Setas viradas em quadrados indicam que o terminal não está usando a FiraCode Nerd
+Font. O backup do `settings.json` anterior fica ao lado, como `~/.claude/settings.json.bak.<data-hora>`.
 
 **Um script falhou no meio**
 Os instaladores são idempotentes. Corrija a causa (rede, repositório indisponível...) e rode o mesmo
