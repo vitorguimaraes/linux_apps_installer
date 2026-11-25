@@ -1,26 +1,56 @@
 #!/bin/bash
 
-# Uninstall any outdated git
-sudo apt purge git -y
+# Base setup that always runs after the menu: GNOME tweaks, everyday apps and
+# keyboard shortcuts. Safe to run more than once. Run it from the project root.
 
-git_check=$(whereis git)
-if [[ "$git_check" != *"/usr/bin/git"* ]]; then
+printf "\nApplying the default pack...\n"
+
+# --- Git ---
+# The PPA build is installed by src/git.sh (the Git menu option also upgrades it)
+if ! command -v git >/dev/null 2>&1; then
     bash src/git.sh
 fi
 
-# Install dash-to-panel gnome extension
-sudo apt install gnome-shell-extension-manager
-# Run Extension Manager; Browse 'Dash to Panel' ordered by Downloads
+# --- Apt apps and tools ---
+# flameshot: screenshots | simplescreenrecorder: screen recording | fd-find/bat/ripgrep/micro/bashtop: CLI tools
+# dconf-editor: browse GNOME settings | gnome-shell-extension-manager: install GNOME extensions
+sudo apt install -y \
+    flameshot simplescreenrecorder \
+    fd-find bat ripgrep micro bashtop \
+    dconf-editor gnome-shell-extension-manager
+# To get Dash to Panel: open Extension Manager > Browse > 'Dash to Panel'
 
-# Install noannoyance gnome extension (fix 'window is ready')
-git clone git@github.com:bdaase/noannoyance.git
-mv noannoyance $HOME/.local/share/gnome-shell/extensions/noannoyance@daase.net
-# Need logout and login again for have effect
+# --- Google Chrome (.deb, from Google) ---
+if ! command -v google-chrome >/dev/null 2>&1; then
+    bash src/chrome.sh
+fi
 
-# Install Poppins font
-find Poppins/ -type f -print0 | xargs -0 cp -t $HOME/.local/share/fonts
+# --- Flatpak apps ---
+flatpak_install() {
+    flatpak info "$1" >/dev/null 2>&1 || flatpak install flathub "$1" -y
+}
+flatpak_install org.qbittorrent.qBittorrent
+flatpak_install org.videolan.VLC
 
-# Set night light
+# --- tldr (npm package, needs Node via nvm) ---
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+if ! command -v tldr >/dev/null 2>&1; then
+    if ! command -v npm >/dev/null 2>&1; then
+        bash src/node.sh
+        # node.sh runs in its own process, so load nvm again to get npm in this one
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    fi
+    npm install -g tldr
+fi
+
+# --- Poppins font ---
+mkdir -p "$HOME/.local/share/fonts"
+cp -u Poppins/*.ttf "$HOME/.local/share/fonts/"
+fc-cache -f "$HOME/.local/share/fonts"
+
+# --- GNOME settings ---
+# Night light: 2700K from 22:00 until 21:58 (practically always on)
 gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled true
 gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from 22
 gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to 21.98
@@ -28,111 +58,52 @@ gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature 27
 
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 
-# Hide snap folder
-echo snap >> $HOME/.hidden
+# Hide the snap folder in the file manager (once)
+grep -qxF snap "$HOME/.hidden" 2>/dev/null || echo snap >> "$HOME/.hidden"
 
-apps_check=$(flatpak list)
-
-# Install apps
-chrome_check=$(whereis google-chrome)
-if [[ "$chrome_check" != *"/usr/bin/google-chrome"* ]]; then
-    bash src/chrome.sh
-fi
-
-flameshot_check=$(whereis flameshot)
-if [[ "$flameshot_check" != *"/usr/bin/flameshot"* ]]; then
-    sudo apt install flameshot -y
-fi
-
-if [[ "$apps_check" != *"qBittorrent"* ]]; then
-    flatpak install flathub org.qbittorrent.qBittorrent -y
-fi
-
-if [[ "$apps_check" != *"VLC"* ]]; then
-    flatpak install flathub org.videolan.VLC -y
-fi
-
-if [[ "$(whereis simplescreenrecorder)" != *"/usr/bin/simplescreenrecorder"* ]]; then
-    sudo apt install simplescreenrecorder -y
-fi
-
-if [[ "$(whereis fdfind)" != *"/usr/bin/fdfind"* ]]; then
-    sudo apt install fd-find -y
-fi
-
-if [[ "$(whereis batcat)" != *"/usr/bin/batcat"* ]]; then
-    sudo apt install bat -y
-fi
-
-if [[ "$(whereis rg)" != *"/usr/bin/rg"* ]]; then
-    sudo apt install ripgrep -y
-fi
-
-if [[ "$(whereis micro)" != *"/usr/bin/micro"* ]]; then
-    sudo apt install micro -y
-fi
-
-if [[ "$(whereis bashtop)" != *"/usr/bin/bashtop"* ]]; then
-    sudo add-apt-repository --yes ppa:bashtop-monitor/bashtop
-    sudo apt update -y
-    sudo apt install bashtop -y
-fi
-
-if [[ "$(whereis tldr)" != *"/bin/tldr"* ]]; then
-    if [[ "$(whereis node)" != *"versions/node/"* ]]; then
-        bash src/node.sh
-    fi
-    npm install -g tldr
-fi
-
-sudo apt install dconf-editor -y
-sudo apt install gnome-shell-extension-manager -y
-
-# Set keyboard shortcuts
-gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
-"[ \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/flameshot/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vscode/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/dbeaver/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/insomnia/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/obsidian/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/discord/', \
-    '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/google/'  \
-]"
-
+# --- Keyboard shortcuts ---
+# Turn off GNOME defaults that clash with Flameshot and the VS Code shortcuts
 gsettings set org.gnome.shell.keybindings screenshot "[]"
 gsettings set org.gnome.shell.keybindings screenshot-window "[]"
 gsettings set org.gnome.shell.keybindings show-screenshot-ui "[]"
 gsettings set org.gnome.shell.keybindings show-screen-recording-ui "[]"
-gsettings set org.gnome.shell.keybindings toggle-message-tray "[]" 
-gsettings set org.gnome.shell.keybindings toggle-application-view "[]" 
-gsettings set org.gnome.settings-daemon.plugins.media-keys calculator "['<Super>c']" 
-gsettings set org.gnome.settings-daemon.plugins.media-keys www "['<Super>f']" 
+gsettings set org.gnome.shell.keybindings toggle-message-tray "[]"
+gsettings set org.gnome.shell.keybindings toggle-application-view "[]"
+# Moving a window between workspaces clashes with VS Code's copy line up/down
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-down "[]"
+gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-up "[]"
 
-# Remove shortcuts to move to workspaces(so don't conflict with vscode copyline shortcuts)
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-down "[]" 
-gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-up "[]" 
+gsettings set org.gnome.settings-daemon.plugins.media-keys calculator "['<Super>c']"
+gsettings set org.gnome.settings-daemon.plugins.media-keys www "['<Super>f']"
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/flameshot/ name 'Flameshot'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/flameshot/ command 'flameshot gui'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/flameshot/ binding 'Print'
+MEDIA_KEYS=org.gnome.settings-daemon.plugins.media-keys
+BINDINGS_PATH=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vscode/ name 'VSCode'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vscode/ command 'code'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/vscode/ binding '<Super>V'
+# add_shortcut <id> <name> <command> <binding>
+# Adds a custom shortcut to the existing list, so shortcuts created elsewhere
+# (like Ctrl+Alt+T for Ghostty) are kept.
+add_shortcut() {
+    local key="$BINDINGS_PATH/$1/" current new
+    current=$(gsettings get $MEDIA_KEYS custom-keybindings)
+    if [[ "$current" != *"$key"* ]]; then
+        if [[ "$current" == "@as []" || "$current" == "[]" ]]; then
+            new="['$key']"
+        else
+            new="${current%]}, '$key']"
+        fi
+        gsettings set $MEDIA_KEYS custom-keybindings "$new"
+    fi
+    gsettings set "$MEDIA_KEYS.custom-keybinding:$key" name "$2"
+    gsettings set "$MEDIA_KEYS.custom-keybinding:$key" command "$3"
+    gsettings set "$MEDIA_KEYS.custom-keybinding:$key" binding "$4"
+}
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/dbeaver/ name 'DBeaver'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/dbeaver/ command 'flatpak run io.dbeaver.DBeaverCommunity'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/dbeaver/ binding '<Super>B'
+add_shortcut flameshot 'Flameshot' 'flameshot gui' 'Print'
+add_shortcut vscode    'VSCode'    'code' '<Super>V'
+add_shortcut dbeaver   'DBeaver'   'dbeaver' '<Super>B'
+add_shortcut insomnia  'Insomnia'  'flatpak run rest.insomnia.Insomnia' '<Super>I'
+add_shortcut obsidian  'Obsidian'  'flatpak run md.obsidian.Obsidian' '<Super>O'
+add_shortcut discord   'Discord'   'flatpak run com.discordapp.Discord' '<Super>D'
 
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/insomnia/ name 'Insomnia'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/insomnia/ command 'flatpak run rest.insomnia.Insomnia'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/insomnia/ binding '<Super>I'
-
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/obsidian/ name 'Obsidian'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/obsidian/ command 'flatpak run md.obsidian.Obsidian'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/obsidian/ binding '<Super>O'
-
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/discord/ name 'Discord'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/discord/ command 'flatpak run com.discordapp.Discord'
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/discord/ binding '<Super>D'
+printf "\nDefault pack applied!\n"
+printf "*******************************************************************\n"
