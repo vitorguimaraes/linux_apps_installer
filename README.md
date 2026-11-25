@@ -380,8 +380,6 @@ Pontos que são do código atual, para você não ser surpreendido:
   Discord mesmo que você não tenha instalado esses apps. O atalho existe, mas não abre nada até o app ser instalado.
 - **Obsidian clona um repositório pessoal** (`vitorguimaraes/ObsidianVault`). Se for usar em outra conta, troque a URL
   em `src/obsidian.sh`.
-- **Node não é idempotente:** `node.sh` acrescenta as linhas do nvm ao `.bashrc`/`.zshrc` a cada execução e faz
-  `git clone` em `~/.nvm` (falha se a pasta já existir). Rode-o uma vez só (o `default-pack` já evita chamá-lo de novo).
 - **Ghostty usa snap:** o `setup-ghostty.sh` instala o Ghostty com `snap install ghostty --classic`.
 - **Ubuntu antigo:** o histórico do projeto registra que o tema Dracula já foi desativado por conflito com o Ubuntu 22.04.
   O instalador foi reescrito depois, mas não há confirmação de que esse conflito esteja resolvido nessa versão.
