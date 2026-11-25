@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Removes apps this setup doesn't use. APT packages only: Snap (Firefox, firmware
 # updater, ...) and ~/snap are never touched, and accessibility tools and Bluetooth are kept.
@@ -28,12 +29,16 @@ for package in "${packages[@]}"; do
 done
 
 # Show exactly what would be removed before doing anything
-printf "\nThe following packages will be removed:\n"
-if ! apt-get -s purge "${to_purge[@]}" | grep '^Purg' | awk '{print "  " $2}'; then
-    printf "  (nothing)\n"
+# (captured first: the exit status of a pipeline comes from its last command, not from grep)
+to_remove=$(apt-get -s purge "${to_purge[@]}" | awk '/^Purg/ {print "  " $2}')
+if [[ -z "$to_remove" ]]; then
+    printf "\nNothing to remove, none of these apps are installed.\n"
+    exit 0
 fi
+printf "\nThe following packages will be removed:\n%s\n" "$to_remove"
 
-read -rp $'\nContinue? [y/N] ' answer
+# No terminal to answer on (read fails) counts as "no"
+read -rp $'\nContinue? [y/N] ' answer || answer=""
 if [[ "$answer" != [yY] ]]; then
     printf "Aborted, nothing was removed.\n"
     exit 0
