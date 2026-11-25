@@ -10,7 +10,7 @@
 printf "\nApplying the default pack...\n"
 
 # Works from any directory
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 # Everything below is applied through gsettings
 if ! gsettings get org.gnome.desktop.interface color-scheme >/dev/null 2>&1; then
