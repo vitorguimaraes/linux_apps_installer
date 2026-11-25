@@ -2,41 +2,74 @@
 
 printf "\nInstalling Dracula Theme...\n"
 
-# grant that the files wasn't downloaded before
-sudo rm -rf gtk-master
-sudo rm -rf Dracula
+THEME_NAME="Dracula"
+THEME_URL="https://github.com/dracula/gtk/archive/master.zip"
+THEMES_DIR="$HOME/.local/share/themes"
+THEME_DIR="$THEMES_DIR/$THEME_NAME"
+USER_THEME_UUID="user-theme@gnome-shell-extensions.gcampax.github.com"
 
-wget https://github.com/dracula/gtk/archive/master.zip
-unzip master.zip 
-sudo rm master.zip 
-sudo mv gtk-master Dracula
-sudo mv Dracula /usr/share/themes
+# Work in a temporary directory so nothing depends on (or pollutes) the current one
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
 
-# Share themes with Flatpak
-sudo cp -r /usr/share/themes $HOME/.local/share/themes
-sudo cp -r /usr/share/icons $HOME/.local/share/icons
-sudo flatpak override --filesystem=$HOME/.local/share/themes
-sudo flatpak override --filesystem=$HOME/.local/share/icons
+# Download and extract the theme
+if ! wget -q -O "$tmp_dir/master.zip" "$THEME_URL"; then
+    printf "Failed to download the Dracula theme from %s\n" "$THEME_URL"
+    exit 1
+fi
+unzip -q "$tmp_dir/master.zip" -d "$tmp_dir"
 
-# Apply Dracula theme to all system
-# gsettings set org.gnome.shell.extensions.user-theme name 'Dracula'
-# gsettings set org.gnome.desktop.interface gtk-theme 'Dracula'
+# Install only the Dracula theme, for the current user (no sudo needed)
+mkdir -p "$THEMES_DIR"
+rm -rf "$THEME_DIR"
+mv "$tmp_dir/gtk-master" "$THEME_DIR"
 
-# install dconf
-# sudo apt install dconf-editor -y
+# Share the theme with Flatpak apps (only if Flatpak is installed)
+if command -v flatpak >/dev/null 2>&1; then
+    flatpak override --user --filesystem="$THEMES_DIR:ro"
+else
+    printf "Flatpak not found, skipping Flatpak theme override.\n"
+fi
 
-# load settings
-# dconf load / < modern-terminal/user.conf
+# libadwaita (GTK4) apps ignore gtk-theme, they only read ~/.config/gtk-4.0
+gtk4_dir="$HOME/.config/gtk-4.0"
+mkdir -p "$gtk4_dir"
+for item in gtk.css gtk-dark.css assets; do
+    target="$gtk4_dir/$item"
+    # Keep a backup of anything the user already had there
+    if [[ -e "$target" && ! -L "$target" ]]; then
+        mv "$target" "$target.bak"
+    fi
+    ln -sfn "$THEME_DIR/gtk-4.0/$item" "$target"
+done
 
-# # Apply dev-icons
-# bash src/dev-icons.sh
+# The GNOME Shell theme needs the User Themes extension
+if ! gnome-extensions list 2>/dev/null | grep -q "^$USER_THEME_UUID$"; then
+    sudo apt install gnome-shell-extensions -y
+fi
+gnome-extensions enable "$USER_THEME_UUID" 2>/dev/null || \
+    printf "Could not enable User Themes now. Log out and back in, then run: gnome-extensions enable %s\n" "$USER_THEME_UUID"
 
-# dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
-# clear
+# Apply the theme
+gsettings set org.gnome.desktop.interface gtk-theme "$THEME_NAME"
+gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+# Purple accent matches Dracula (tints Yaru icons/folders, which the GTK theme doesn't cover)
+gsettings set org.gnome.desktop.interface accent-color 'purple' 2>/dev/null || \
+    printf "Accent color not supported on this GNOME version, skipping.\n"
+# Icon themes don't follow the accent color, so pick the magenta Yaru variant explicitly
+# (Yaru-purple is bluish; Yaru-magenta is the closest to a true purple)
+if [[ -d /usr/share/icons/Yaru-magenta-dark ]]; then
+    gsettings set org.gnome.desktop.interface icon-theme 'Yaru-magenta-dark'
+fi
+gsettings set org.gnome.shell.extensions.user-theme name "$THEME_NAME" 2>/dev/null || \
+    printf "Shell theme not applied yet (User Themes extension is not active). Log out and back in, then run: gsettings set org.gnome.shell.extensions.user-theme name '%s'\n" "$THEME_NAME"
 
-# if [[ "$dracula_theme_check" == *"Dracula"* ]]; then
-#     printf "Dracula Theme installed!"
-# else
-#     printf "Dracula Theme not installed!"
-# fi
-# printf "\n*******************************************************************\n"
+dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
+clear
+
+if [[ "$dracula_theme_check" == *"$THEME_NAME"* ]]; then
+    printf "Dracula Theme installed!"
+else
+    printf "Dracula Theme not installed!"
+fi
+printf "\n*******************************************************************\n"
