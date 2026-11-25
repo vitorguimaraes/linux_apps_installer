@@ -2,9 +2,12 @@
 
 printf "\nInstalling Modern Terminal (Ghostty + zsh + Starship)...\n"
 
+# Works from any directory
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # Installs Ghostty, zsh (+ autosuggestions/syntax-highlighting), Starship, eza, fzf,
 # FiraCode Nerd Font, the Dracula theme and the Ctrl+Alt+T shortcut
-if ! bash modern-terminal/setup-ghostty.sh; then
+if ! bash "$PROJECT_DIR/modern-terminal/setup-ghostty.sh"; then
     printf "\nModern Terminal setup failed! Check the errors above.\n"
     exit 1
 fi
@@ -38,7 +41,7 @@ if [[ -n "$ghostty_check" && -n "$zsh_check" && -n "$starship_check" &&
     printf "Modern Terminal installed!\n"
 
     # Opens the customization guide + lab in the default browser
-    guide="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/docs/terminal-customization.html"
+    guide="$PROJECT_DIR/docs/terminal-customization.html"
     if [[ -f "$guide" ]] && command -v xdg-open >/dev/null 2>&1 && [[ -n "$DISPLAY$WAYLAND_DISPLAY" ]]; then
         printf "Opening the terminal customization guide...\n"
         nohup xdg-open "$guide" >/dev/null 2>&1 &
