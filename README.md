@@ -98,7 +98,7 @@ main.sh
 | **DBeaver** | `src/dbeaver.sh` | Repositório oficial do DBeaver (`apt`) | Instala o `dbeaver-ce` (Community) a partir do repositório do próprio projeto, que é mais atual que o do Flathub, e o fixa no dock. |
 | **Obsidian** | `src/obsidian.sh` | Flatpak (`md.obsidian.Obsidian`) | Instala o Obsidian, fixa no dock e **clona o seu cofre** (`vitorguimaraes/ObsidianVault`) em `~/.ObsidianVault`. |
 | **Discord** | `src/discord.sh` | Flatpak (`com.discordapp.Discord`) | Instala o Discord e fixa no dock. |
-| **Telegram** | `src/telegram.sh` | Flatpak (`org.telegram.desktop`) | Instala o Telegram Desktop. |
+| **Telegram** | `src/telegram.sh` | Flatpak (`org.telegram.desktop`) | Instala o Telegram Desktop e fixa no dock. |
 | **Remove Junk Apps** | `src/remove-junk-apps.sh` | `apt purge` | Remove pacotes `apt` que você não usa, **mostrando a lista e pedindo confirmação antes**. [Detalhes abaixo](#remove-junk-apps). |
 
 ### Como o menu detecta o que já está instalado
