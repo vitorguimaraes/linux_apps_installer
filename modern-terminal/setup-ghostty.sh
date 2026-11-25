@@ -24,11 +24,11 @@ command -v starship >/dev/null || sudo apt install -y starship
 if ! fc-list | grep -qi "FiraCode Nerd"; then
   log "Instalando FiraCode Nerd Font"
   tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT   # também limpa se o curl ou o unzip falharem
   curl -fL -o "$tmp/FiraCode.zip" https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip
   mkdir -p ~/.local/share/fonts/FiraCode
   unzip -oq "$tmp/FiraCode.zip" -d ~/.local/share/fonts/FiraCode
   fc-cache -f
-  rm -rf "$tmp"
 fi
 
 # --- 3) zsh ---
@@ -49,6 +49,8 @@ upsert_block() {
       $0==b{printf "%s", blk; skip=1; next} skip&&$0==e{skip=0; next} !skip' "$blk" "$file" > "$out"
     cat "$out" > "$file"; rm -f "$out"
   else
+    # Se a última linha não termina em quebra de linha, o marcador grudaria nela e o bloco nunca seria reconhecido
+    [ -s "$file" ] && [ -n "$(tail -c1 "$file")" ] && echo >> "$file"
     cat "$blk" >> "$file"
   fi
   rm -f "$blk"
@@ -97,12 +99,17 @@ alias grep="rg"
 alias nano="micro"
 EOF
 
-[ "$(getent passwd "$USER" | cut -d: -f7)" = "$(command -v zsh)" ] || chsh -s "$(command -v zsh)"
+# sudo (já autenticado pelo apt) evita pedir a senha de novo; se falhar, só avisa e segue configurando
+if [ "$(getent passwd "$USER" | cut -d: -f7)" != "$(command -v zsh)" ]; then
+  sudo chsh -s "$(command -v zsh)" "$USER" \
+    || echo "  AVISO: não consegui trocar o shell padrão. Rode depois: chsh -s $(command -v zsh)"
+fi
 
 # --- 4) Ghostty ---
 log "Configurando Ghostty (Dracula)"
 mkdir -p ~/.config/ghostty
-FONT=$(fc-list : family | grep -i "FiraCode Nerd Font" | grep -vi -e mono -e propo | head -1 | cut -d, -f1)
+# "|| true": sem nenhuma correspondência o grep sai com 1 e o pipefail encerraria o script; o fallback abaixo cobre o caso vazio
+FONT=$(fc-list : family | grep -i "FiraCode Nerd Font" | grep -vi -e mono -e propo | head -1 | cut -d, -f1) || true
 cat > ~/.config/ghostty/config.ghostty <<EOF
 theme = Dracula
 font-family = ${FONT:-FiraCode Nerd Font}
@@ -170,19 +177,23 @@ micro -option colorscheme dracula-tc >/dev/null 2>&1 || true
 log "Configurando atalho Ctrl+Alt+T"
 MK=org.gnome.settings-daemon.plugins.media-keys
 KEY=/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/ghostty/
-gsettings set $MK terminal "[]"
-cur=$(gsettings get $MK custom-keybindings)
-if [[ "$cur" != *"$KEY"* ]]; then
-  if [[ "$cur" == "@as []" || "$cur" == "[]" ]]; then
-    new="['$KEY']"
-  else
-    new="${cur%]}, '$KEY']"
+if gsettings get $MK custom-keybindings >/dev/null 2>&1; then
+  gsettings set $MK terminal "[]"
+  cur=$(gsettings get $MK custom-keybindings)
+  if [[ "$cur" != *"$KEY"* ]]; then
+    if [[ "$cur" == "@as []" || "$cur" == "[]" ]]; then
+      new="['$KEY']"
+    else
+      new="${cur%]}, '$KEY']"
+    fi
+    gsettings set $MK custom-keybindings "$new"
   fi
-  gsettings set $MK custom-keybindings "$new"
+  S="$MK.custom-keybinding:$KEY"
+  gsettings set "$S" name 'Ghostty'
+  gsettings set "$S" command "$(command -v ghostty || echo /snap/bin/ghostty)"
+  gsettings set "$S" binding '<Primary><Alt>t'
+  log "Pronto! Faça logout/login e abra o Ghostty com Ctrl+Alt+T."
+else
+  echo "  AVISO: nenhuma sessão GNOME encontrada, o atalho Ctrl+Alt+T não foi configurado. Rode o script de novo dentro da sessão."
+  log "Pronto! Faça logout/login e abra o Ghostty pelo menu de aplicativos."
 fi
-S="$MK.custom-keybinding:$KEY"
-gsettings set "$S" name 'Ghostty'
-gsettings set "$S" command "$(command -v ghostty || echo /snap/bin/ghostty)"
-gsettings set "$S" binding '<Primary><Alt>t'
-
-log "Pronto! Faça logout/login e abra o Ghostty com Ctrl+Alt+T."
