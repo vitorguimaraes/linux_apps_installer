@@ -53,6 +53,7 @@ function checks() {
     dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
     flatpak_apps_check=$(flatpak list)
     vscode_check=$(dpkg -s code 2>/dev/null | grep "Status: install ok installed")
+    dbeaver_check=$(dpkg -s dbeaver-ce 2>/dev/null | grep "Status: install ok installed")
 
 
     echo $password | sudo -S touch /etc/default/apport
@@ -106,7 +107,7 @@ function checks() {
         array[insomnia]=$not_installed
     fi
 
-    if [[ "$flatpak_apps_check" == *"dbeaver"* ]]; then
+    if [[ -n "$dbeaver_check" || "$flatpak_apps_check" == *"dbeaver"* ]]; then
         array[dbeaver]=$installed
     else
         array[dbeaver]=$not_installed
