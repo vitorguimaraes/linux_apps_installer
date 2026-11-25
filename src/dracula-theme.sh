@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 printf "\nInstalling Dracula Theme...\n"
 
@@ -8,11 +9,25 @@ THEMES_DIR="$HOME/.local/share/themes"
 THEME_DIR="$THEMES_DIR/$THEME_NAME"
 USER_THEME_UUID="user-theme@gnome-shell-extensions.gcampax.github.com"
 
+# Fail early, before touching any file: everything below is applied through gsettings
+if ! gsettings get org.gnome.desktop.interface gtk-theme >/dev/null 2>&1; then
+    printf "No GNOME session found, nothing was changed. Dracula Theme not installed!\n"
+    exit 1
+fi
+
+# Needed to download and extract the theme
+missing_tools=()
+command -v wget >/dev/null 2>&1 || missing_tools+=(wget)
+command -v unzip >/dev/null 2>&1 || missing_tools+=(unzip)
+if [[ ${#missing_tools[@]} -gt 0 ]]; then
+    sudo apt install "${missing_tools[@]}" -y
+fi
+
 # Work in a temporary directory so nothing depends on (or pollutes) the current one
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 
-# Download and extract the theme
+# Download and extract the theme (set -e stops here on failure, before the installed theme is removed)
 if ! wget -q -O "$tmp_dir/master.zip" "$THEME_URL"; then
     printf "Failed to download the Dracula theme from %s\n" "$THEME_URL"
     exit 1
@@ -51,10 +66,13 @@ for item in gtk.css gtk-dark.css assets; do
     fi
 done
 for item in gtk.css gtk-dark.css; do
+    # Built in the temp dir and moved only when complete, so a failed sed never leaves
+    # an (almost) empty gtk.css behind
     {
         printf '%s\n' "$generated_marker"
         sed 's#\.\./assets/#assets/#g' "$THEME_DIR/gtk-4.0/$item"
-    } > "$gtk4_dir/$item"
+    } > "$tmp_dir/$item"
+    mv "$tmp_dir/$item" "$gtk4_dir/$item"
 done
 ln -sfn "$THEME_DIR/assets" "$gtk4_dir/assets"
 
@@ -80,11 +98,12 @@ gsettings set org.gnome.shell.extensions.user-theme name "$THEME_NAME" 2>/dev/nu
     printf "Shell theme not applied yet (User Themes extension is not active). Log out and back in, then run: gsettings set org.gnome.shell.extensions.user-theme name '%s'\n" "$THEME_NAME"
 
 dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
-clear
 
 if [[ "$dracula_theme_check" == *"$THEME_NAME"* ]]; then
     printf "Dracula Theme installed!"
 else
     printf "Dracula Theme not installed!"
+    printf "\n*******************************************************************\n"
+    exit 1
 fi
 printf "\n*******************************************************************\n"
