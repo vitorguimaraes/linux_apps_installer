@@ -45,10 +45,11 @@ function checks() {
     git_check=$(whereis git)
     node_check=$(whereis node)
     zsh_check=$(whereis zsh)
-    hyper_check=$(whereis hyper)
-    firacode_check=$(fc-list | grep "Fira Code Regular Nerd Font Complete.ttf")
-    exa_check=$(whereis exa)
-    power_level10k_check=$(ls -a $HOME/)
+    ghostty_check=$(command -v ghostty)
+    starship_check=$(command -v starship)
+    firacode_check=$(fc-list | grep -i "FiraCode Nerd")
+    eza_check=$(command -v eza)
+    fzf_check=$(command -v fzf)
     dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
     flatpak_apps_check=$(flatpak list)
     vscode_check=$(dpkg -s code 2>/dev/null | grep "Status: install ok installed")
@@ -76,10 +77,11 @@ function checks() {
     fi
 
     if [[ "$zsh_check" == *"/usr/bin/zsh"* &&
-        "$hyper_check" == *"/bin/hyper"* && 
-        "$firacode_check" == *"Fira Code Regular Nerd Font"*  &&
-        "$exa_check" == *".cargo/bin/exa"* && 
-        "$power_level10k_check" == *".powerlevel10k"*
+        -n "$ghostty_check" &&
+        -n "$starship_check" &&
+        -n "$firacode_check" &&
+        -n "$eza_check" &&
+        -n "$fzf_check"
     ]]; then
         array[modern_terminal]=$installed
     else

@@ -1,92 +1,50 @@
 #!/bin/bash
 
-printf "\nInstalling Modern Terminal...\n"
+printf "\nInstalling Modern Terminal (Ghostty + zsh + Starship)...\n"
 
-sudo apt install zsh build-essential -y 
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-export PATH=$PATH:$HOME/.cargo/env
-source "$HOME/.cargo/env"
-cargo install exa
-chsh -s $(which zsh)
-
-cp -v modern-terminal/.p10k.zsh $HOME
-cp -v modern-terminal/.hyper.js $HOME 
-cp -v modern-terminal/.zshrc $HOME
-cp -v modern-terminal/.bash_aliases $HOME
-cp -v modern-terminal/.zsh-autosuggestions.zsh $HOME
-cp -vr modern-terminal/.zsh-syntax-highlighting $HOME
-
-wget https://releases.hyper.is/download/deb -O hyperjs.deb
-sudo dpkg -i hyperjs.deb 
-rm -v hyperjs.deb 
-gsettings set org.gnome.shell favorite-apps "$(gsettings get org.gnome.shell favorite-apps | sed s/.$//), 'hyper.desktop']"
-
-sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/local/bin/hyper 50
-sed -i '/TerminalEmulator/d' $HOME/.config/xfce4/helpers.rc
-echo "TerminalEmulator=debian-x-terminal-emulator" >> $HOME/.config/xfce4/helpers.rc
-
-wget https://github.com/ryanoasis/nerd-fonts/releases/download/v2.3.3/FiraCode.zip
-unzip -o FiraCode.zip -d $HOME/.local/share/fonts/
-rm -v FiraCode.zip
-
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/.powerlevel10k
-git clone --depth 1 https://github.com/junegunn/fzf.git $HOME/.fzf
-echo 'y' | $HOME/.fzf/install
-
-zsh_check=$(whereis zsh)
-hyper_check=$(whereis hyper)
-firacode_check=$(fc-list | grep "Fira Code Regular Nerd Font Complete.ttf")
-exa_check=$(whereis exa)
-power_level10k_check=$(ls -a $HOME)
-fzf_check=$(ls -a $HOME)
-clear 
-
-if [[ "$zsh_check" == *"/usr/bin/zsh"* ]]; then
-    printf "Shell ZSH installed!\n"
-else 
-	"Shell ZSH not installed!\n"
+# Installs Ghostty, zsh (+ autosuggestions/syntax-highlighting), Starship, eza, fzf,
+# FiraCode Nerd Font, the Dracula theme and the Ctrl+Alt+T shortcut
+if ! bash modern-terminal/setup-ghostty.sh; then
+    printf "\nModern Terminal setup failed! Check the errors above.\n"
+    exit 1
 fi
 
-if [[ "$hyper_check" == *"/bin/hyper"* ]]; then
-    printf "Hyper JS installed!\n" 
-else 
-	"Hyper JS not installed!\n" 
-fi
+ghostty_check=$(command -v ghostty)
+zsh_check=$(command -v zsh)
+starship_check=$(command -v starship)
+eza_check=$(command -v eza)
+fzf_check=$(command -v fzf)
+firacode_check=$(fc-list | grep -i "FiraCode Nerd")
+zsh_plugins_check=$(ls /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null)
 
-if [[ "$firacode_check" == *"Fira Code Regular Nerd Font"* ]]; then 
-    printf "Fira Code installed!\n" 
-else 
-	"Fira Code not installed!\n" 
-fi
+check() {
+    if [[ -n "$2" ]]; then
+        printf "%s installed!\n" "$1"
+    else
+        printf "%s not installed!\n" "$1"
+    fi
+}
 
-if [[ "$exa_check" == *".cargo/bin/exa"* ]]; then 
-    printf "Exa installed!\n" 
-else 
-	printf "Exa not installed!\n" 
-fi
+check "Ghostty" "$ghostty_check"
+check "Shell ZSH" "$zsh_check"
+check "Starship" "$starship_check"
+check "Eza" "$eza_check"
+check "fzf" "$fzf_check"
+check "FiraCode Nerd Font" "$firacode_check"
+check "ZSH plugins" "$zsh_plugins_check"
 
-if [[ "$power_level10k_check" == *".powerlevel10k"* ]]; then 
-    printf "Powerlevel10k installed!\n" 
-else 
-	printf "Powerlevel10k not installed!\n" 
-fi
+if [[ -n "$ghostty_check" && -n "$zsh_check" && -n "$starship_check" &&
+      -n "$eza_check" && -n "$fzf_check" && -n "$firacode_check" && -n "$zsh_plugins_check" ]]; then
+    printf "Modern Terminal installed!\n"
 
-if [ "$fzf_check" == *".fzf"* ]]; then 
-    printf "fzf installed!\n" 
-else 
-	printf "fzf not installed!\n" 
-fi
-
-if [[ "$zsh_check" == *"/usr/bin/zsh"* &&
-	  "$hyper_check" == *"/bin/hyper"* && 
-	  "$firacode_check" == *"Fira Code Regular Nerd Font"* &&
-	  "$exa_check" == *".cargo/bin/exa"* &&
-	  "$power_level10k_check" == *".powerlevel10k"* &&
-	  "$fzf_check" == *".fzf"* 
-	]]; then 
-	printf "Modern Terminal installed!"
+    # Opens the customization guide + lab in the default browser
+    guide="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/docs/terminal-customization.html"
+    if [[ -f "$guide" ]] && command -v xdg-open >/dev/null 2>&1 && [[ -n "$DISPLAY$WAYLAND_DISPLAY" ]]; then
+        printf "Opening the terminal customization guide...\n"
+        nohup xdg-open "$guide" >/dev/null 2>&1 &
+    fi
 else
-	printf "Modern Terminal not installed yet!" 
-	printf "Logoff and login to apply changes or check logs for errors"
+    printf "Modern Terminal not installed yet! "
+    printf "Logoff and login to apply changes or check logs for errors"
 fi
 printf "\n******************************************************************\n"
