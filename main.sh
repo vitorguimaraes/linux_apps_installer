@@ -46,8 +46,8 @@ function checks() {
     elixir_check=$(whereis elixir)
     phoenix_check=$(ls $HOME/.mix/archives | grep "phx")
     postgresql_check=$(whereis psql)
-    docker_check=$(whereis docker)
-    dockercompose_check=$(whereis compose)
+    docker_check=$(dpkg -s docker-ce 2>/dev/null | grep "Status: install ok installed")
+    dockercompose_check=$(dpkg -s docker-compose-plugin 2>/dev/null | grep "Status: install ok installed")
     git_check=$(whereis git)
     node_check=$(whereis node)
     zsh_check=$(whereis zsh)
@@ -81,8 +81,7 @@ function checks() {
         array[postgresql]=$not_installed
     fi
 
-    if [[ "$docker_check" == *"/etc/docker"* && 
-        "$dockercompose_check" == *"/usr/bin/compose"* ]]; then
+    if [[ -n "$docker_check" && -n "$dockercompose_check" ]]; then
         array[docker]=$installed
     else 
         array[docker]=$not_installed
