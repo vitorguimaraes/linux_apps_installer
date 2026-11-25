@@ -58,6 +58,7 @@ function checks() {
     power_level10k_check=$(ls -a $HOME/)
     dracula_theme_check=$(gsettings get org.gnome.desktop.interface gtk-theme)
     flatpak_apps_check=$(flatpak list)
+    vscode_check=$(dpkg -s code 2>/dev/null | grep "Status: install ok installed")
 
 
     echo $password | sudo -S touch /etc/default/apport
@@ -117,7 +118,7 @@ function checks() {
         array[dracula_theme]=$not_installed
     fi
 
-    if [[ "$flatpak_apps_check" == *"visualstudio"* ]]; then
+    if [[ -n "$vscode_check" ]]; then
         array[vscode]=$installed
     else
         array[vscode]=$not_installed
