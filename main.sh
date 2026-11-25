@@ -6,21 +6,20 @@ read password
 # Define enum keys
 enum_keys=(
     all 
+    git
+    vscode 
+    docker 
+    modern_terminal 
+    telegram 
+    dracula_theme 
+    node
     elixir 
     phoenix 
     postgresql 
-    docker 
-    git
-    node
-    modern_terminal 
-    dracula_theme 
-    vscode 
     insomnia
     dbeaver 
     obsidian
     discord
-    telegram 
-    static_noise_power_save
 )
 
 # Declare keys associate with indexes
