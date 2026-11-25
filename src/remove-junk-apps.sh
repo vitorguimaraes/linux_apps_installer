@@ -1,30 +1,49 @@
 #!/bin/bash
 
-sudo apt purge aisleriot '*bluez*' '*brasero*' '*brlapi*' '*brltty*' -y
-sudo apt purge cheese cdrdao '*dvd*' evolution evolution-ews evolution-common '*evolution-plugin*' emacs '*evince*' '*firefox*' '*folks*' -y 
-sudo apt purge gigolo '*gimp*' gamemode '*gnome-todo*' '*gedit*' gnome-clocks gnome-user-docs gnome-disk-utility gnome-online-miners -y
-sudo apt purge gnome-accessibility-themes gnome-bluetooth gnome-calendar gnome-contacts gnome-font-viewer gnome-maps gnome-mines gnome-photos -y 
-sudo apt purge gnome-power-manager gnome-screenshot gnome-sound-recorder gnome-sudoku -y
-sudo apt purge gnome-system-monitor gnome-tour gnome-weather info -y
-sudo apt purge '*libgnome-games*' '*liblouisutdml*' '*libreoffice*' '*mahjongg*' '*mythes*' mousepad -y
-sudo apt purge '*openoffice*' onboard parole pidgin pitivi ppp -y
-sudo apt purge quadrapassel '*remmina*' '*rhythmbox*' shotwell '*speak*' '*speech*' sgt-puzzles -y 
-sudo apt purge totem totem-common totem-plugins '*transmission*' '*thunderbird*' xfburn xorg-docs-core -y
-sudo apt purge zorin-connect zorin-gnome-tour-autostart zorin-os-tour-video -y
-sudo apt install gnome-control-center
-# full remove firefox apt
-sudo snap remove --purge firefox
-sudo rm -rf $HOME/.mozilla  
-sudo rm -rf /etc/firefox
-sudo rm -rf /usr/lib/firefox
-sudo rm -rf /usr/lib/firefox-addons
-sudo rm -rf /usr/lib/mozilla
-sudo rm -rf $HOME/snap
+# Removes apps this setup doesn't use. APT packages only: Snap (Firefox, firmware
+# updater, ...) and ~/snap are never touched, and accessibility tools and Bluetooth are kept.
 
-# remove snap store
-sudo snap remove --purge snap-store
+printf "\nRemoving junk apps...\n"
+
+# Plain names must exist in the repos (apt aborts the whole command on an unknown
+# name); patterns may match nothing.
+packages=(
+    aisleriot '*brasero*'
+    cdrdao '*dvd*' evolution evolution-ews evolution-common '*evolution-plugin*' emacs '*evince*' '*folks*'
+    gigolo '*gimp*' gamemode '*gnome-todo*' '*gedit*' gnome-clocks gnome-user-docs
+    gnome-calendar gnome-contacts gnome-font-viewer gnome-maps gnome-mines
+    gnome-power-manager gnome-screenshot gnome-sound-recorder gnome-sudoku
+    gnome-system-monitor gnome-tour gnome-weather
+    '*libgnome-games*' '*libreoffice*' '*mahjongg*' '*mythes*' mousepad
+    '*openoffice*' onboard parole pidgin pitivi ppp
+    quadrapassel '*remmina*' '*rhythmbox*' shotwell sgt-puzzles
+    totem totem-common totem-plugins '*transmission*' '*thunderbird*' xfburn xorg-docs-core
+)
+
+to_purge=()
+for package in "${packages[@]}"; do
+    if [[ "$package" == *'*'* ]] || apt-cache show "$package" >/dev/null 2>&1; then
+        to_purge+=("$package")
+    fi
+done
+
+# Show exactly what would be removed before doing anything
+printf "\nThe following packages will be removed:\n"
+if ! apt-get -s purge "${to_purge[@]}" | grep '^Purg' | awk '{print "  " $2}'; then
+    printf "  (nothing)\n"
+fi
+
+read -rp $'\nContinue? [y/N] ' answer
+if [[ "$answer" != [yY] ]]; then
+    printf "Aborted, nothing was removed.\n"
+    exit 0
+fi
+
+sudo apt purge "${to_purge[@]}" -y
 
 sudo apt clean -y
-sudo apt autoremove -y 
-sudo apt -f install -y
 sudo apt autoremove -y
+sudo apt -f install -y
+
+printf "\nJunk apps removed!\n"
+printf "*******************************************************************\n"
