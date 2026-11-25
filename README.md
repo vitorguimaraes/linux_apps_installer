@@ -43,9 +43,8 @@ bash main.sh
 5. **Faça logout/login (ou reinicie)** ao terminar. Isso é necessário para o `zsh` virar o shell padrão, para o grupo
    `docker` valer e para as extensões do GNOME serem carregadas.
 
-> **Execute sempre a partir da raiz do repositório.** Os scripts chamam uns aos outros por caminho relativo
-> (`bash src/git.sh`, `bash modern-terminal/setup-ghostty.sh`, `Poppins/`...), então `cd` para a pasta do projeto
-> antes de rodar `bash main.sh`.
+> **Pode rodar de qualquer pasta.** O `main.sh` e os instaladores resolvem os caminhos a partir do próprio local,
+> então `bash /caminho/do/projeto/main.sh` funciona igual a entrar na pasta e rodar `bash main.sh`.
 
 ---
 
@@ -58,7 +57,7 @@ bash main.sh
 | Usuário | Conta com permissão de `sudo`. |
 | Internet | Necessária: pacotes `apt`, repositórios de terceiros, Flathub, GitHub. |
 | Sessão gráfica | O menu usa `zenity`, então precisa rodar dentro de uma sessão desktop. |
-| Pacotes de base | `zenity` (já vem no Ubuntu desktop), `wget`, `curl`, `unzip`, `git`. O `main.sh` instala o **Flatpak** sozinho se não existir. |
+| Pacotes de base | `wget`, `curl`, `unzip`, `git`. O `main.sh` instala sozinho o **zenity** (que já vem no Ubuntu desktop) e o **Flatpak**, se não existirem. |
 
 ---
 
@@ -66,7 +65,7 @@ bash main.sh
 
 ```
 main.sh
- ├─ instala o Flatpak (+ remote Flathub) se não existir
+ ├─ instala o zenity e o Flatpak se faltarem, e sempre garante o remote Flathub
  ├─ checks(): detecta o que já está instalado (dpkg, whereis, command -v, flatpak list, gsettings)
  ├─ zenity --checklist: mostra o menu com a coluna "Installed?"
  ├─ para cada item marcado → bash src/<app>.sh
@@ -76,11 +75,14 @@ main.sh
 - **`main.sh`** é o orquestrador. A função `checks()` preenche o estado de cada app, e o `zenity` apresenta a lista.
   O status é só informativo: você pode marcar um app que já está instalado para reinstalar/reaplicar a configuração.
 - **`src/*.sh`** são os instaladores, **um por app**. Cada um é independente e pode ser executado sozinho
-  (`bash src/docker.sh`), desde que seja a partir da raiz do projeto.
+  (`bash src/docker.sh`), de qualquer pasta.
 - Quando um instalador precisa de outro, ele o chama. Por exemplo, `node.sh` e `obsidian.sh` instalam o Git antes,
   se necessário.
-- Os instaladores mais novos (`docker`, `vscode`, `dbeaver`, `dracula-theme`, `remove-junk-apps`, `modern-terminal`, `default-pack`)
-  foram escritos para serem **idempotentes**: podem ser executados de novo sem duplicar configuração.
+- **Todos** os instaladores são **idempotentes**: podem ser executados de novo sem duplicar configuração. Os aliases do
+  Git que você já mudou são mantidos, as linhas do nvm entram uma vez só, o ícone no dock não se repete e o cofre do
+  Obsidian que já foi clonado não é tocado.
+- Quando algo falha, o instalador em geral **sai com código diferente de zero** e uma mensagem. O `main.sh` segue com os
+  próximos itens; corrija a causa e reexecute só o que falhou.
 
 ---
 
@@ -150,6 +152,10 @@ Ele representa a configuração básica de qualquer máquina:
 
 Os pacotes `apt` são instalados em um único comando e o `apt` ignora os que já existem. O Chrome, os apps
 Flatpak e o `tldr` só são instalados se ainda não estiverem presentes. Rodar o pacote de novo é seguro.
+
+Os passos de instalação são independentes: se algum falhar (rede, por exemplo), os demais e as configurações do GNOME
+continuam, e no fim o `default-pack` lista o que falhou e sai com código 1. Sem sessão GNOME, ele avisa e sai antes de
+alterar qualquer coisa.
 
 ---
 
@@ -230,7 +236,8 @@ sozinho no navegador ao fim da instalação.
 `src/dracula-theme.sh` instala o [tema GTK Dracula](https://github.com/dracula/gtk) **apenas para o seu usuário**
 (em `~/.local/share/themes/Dracula`, sem `sudo` para o tema em si) e:
 
-1. Baixa e extrai o tema, substituindo a instalação anterior.
+1. Baixa e extrai o tema, substituindo a instalação anterior (se o download ou a extração falharem, o tema que já estava
+   instalado é mantido). Sem sessão GNOME, o script avisa e sai antes de alterar qualquer arquivo.
 2. Libera a pasta de temas para apps **Flatpak** (`flatpak override --user --filesystem=...:ro`).
 3. Aplica o tema em apps **GTK4/libadwaita**, que ignoram a opção `gtk-theme` e só leem `~/.config/gtk-4.0`.
    O script copia o `gtk.css` e o `gtk-dark.css` reescrevendo o caminho dos ícones, e aponta `assets` para a pasta
@@ -255,6 +262,7 @@ sozinho no navegador ao fim da instalação.
 - Pacotes que não existem no repositório são ignorados (o `apt` abortaria tudo se encontrasse um nome desconhecido).
 - Faz uma **simulação** (`apt-get -s purge`) e **lista exatamente o que será removido**. Só prossegue se você digitar `y`.
   Qualquer outra resposta cancela sem remover nada.
+- Se nenhum desses pacotes estiver instalado, avisa e sai sem pedir confirmação.
 
 **Categorias do que é removido:** jogos do GNOME (Mines, Sudoku, Mahjongg, Aisleriot, Quadrapassel...), Thunderbird,
 Evolution, LibreOffice, GIMP, Totem, Rhythmbox, Shotwell, Pitivi, Remmina, Transmission, Brasero, Gedit, Mousepad, Emacs,
@@ -355,18 +363,27 @@ linux_apps_installer/
 ## Como adicionar um novo app
 
 1. Crie `src/meu-app.sh` com a instalação. Prefira um repositório `apt` oficial (que se atualiza com o sistema).
-   Depois, Flatpak. Use `set -e` e comandos idempotentes. Para fixar no dock sem duplicar:
+   Depois, Flatpak. Use `set -e` e comandos idempotentes (no Flatpak: `flatpak info ID || flatpak install flathub ID -y`).
+   Se o script chamar outro, use o caminho do próprio script (`$(dirname "${BASH_SOURCE[0]}")`) em vez de um caminho
+   relativo, para ele funcionar de qualquer pasta. Se algo falhar, saia com `exit 1`. Para fixar no dock sem duplicar,
+   sem abortar quando não há sessão GNOME e tratando a lista vazia:
 
    ```bash
-   favorites=$(gsettings get org.gnome.shell favorite-apps)
-   if [[ "$favorites" != *"meu-app.desktop"* ]]; then
-       gsettings set org.gnome.shell favorite-apps "${favorites%]}, 'meu-app.desktop']"
+   desktop_file="meu-app.desktop"
+   if favorites=$(gsettings get org.gnome.shell favorite-apps 2>/dev/null); then
+       if [[ "$favorites" != *"$desktop_file"* ]]; then
+           if [[ "$favorites" == "[]" || "$favorites" == "@as []" ]]; then
+               gsettings set org.gnome.shell favorite-apps "['$desktop_file']"
+           else
+               gsettings set org.gnome.shell favorite-apps "${favorites%]}, '$desktop_file']"
+           fi
+       fi
    fi
    ```
 
 2. Em `main.sh`:
-   - adicione uma entrada em `enum_keys`;
-   - adicione o teste de instalação em `checks()` (preenchendo `array[meu_app]`);
+   - adicione o teste de instalação em `checks()` (preenchendo `array[meu_app]`; o `array` é associativo, basta usar a
+     chave nova);
    - adicione a linha `False "Meu App" "${array[meu_app]}" \` em `zenity --list`;
    - adicione o bloco `if [[ "$to_install" == *"Meu App"* ]]; then bash src/meu-app.sh; fi`.
 
@@ -381,6 +398,9 @@ Pontos que são do código atual, para você não ser surpreendido:
 - **`default-pack` roda sempre**, sem perguntar. Isso inclui desativar atalhos do GNOME e instalar Chrome, VLC,
   qBittorrent etc. Os atalhos antigos do GNOME para captura de tela, bandeja de mensagens e mover janela entre
   áreas de trabalho são **desativados** (veja [atalhos](#atalhos-de-teclado-configurados)).
+- **Cancelar o menu também aplica o `default-pack`** (é proposital). O `main.sh` chama o `default-pack` no fim sempre,
+  inclusive se você fechar a janela ou clicar em Cancelar sem marcar nada. Para sair sem aplicar nada, interrompa o
+  script no terminal (`Ctrl+C`) em vez de cancelar a janela.
 - **Atalhos de apps que você não instalou:** o `default-pack` cria os atalhos de VS Code, DBeaver, Insomnia, Obsidian e
   Discord mesmo que você não tenha instalado esses apps. O atalho existe, mas não abre nada até o app ser instalado.
 - **Obsidian clona um repositório pessoal** (`vitorguimaraes/ObsidianVault`). Se for usar em outra conta, troque a URL
@@ -422,7 +442,7 @@ Os backups ficam ao lado dos originais, como `~/.zshrc.bak.<data-hora>`, `~/.con
 Copie o backup de volta por cima do arquivo atual.
 
 **Um script falhou no meio**
-Quase todos os scripts novos são idempotentes. Corrija a causa (rede, repositório indisponível...) e rode o mesmo
+Os instaladores são idempotentes. Corrija a causa (rede, repositório indisponível...) e rode o mesmo
 instalador de novo, isoladamente: `bash src/<app>.sh`.
 
 ---
