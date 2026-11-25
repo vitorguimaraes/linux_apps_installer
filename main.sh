@@ -1,40 +1,22 @@
 #!/bin/bash
 
-# Define enum keys
-enum_keys=(
-    all 
-    git
-    vscode 
-    docker 
-    modern_terminal 
-    telegram 
-    dracula_theme 
-    node
-    insomnia
-    dbeaver 
-    obsidian
-    discord
-)
+# Works from any directory
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-# Declare keys associate with indexes
-enum_lenght=${#enum_keys[@]}
-for ((i=0; $i < $enum_lenght; i++)); do
-    name=${enum_keys[$i]}
-    declare ${name}=$i 
-done
-
-# Install Flatpak if not installed
-flatpak_check=$(flatpak --version)
-if [[ "$flatpak_check" != *"Flatpak"* ]]; then
+# Install Flatpak if not installed, and make sure the Flathub remote exists
+# (both steps are safe to repeat)
+if ! command -v flatpak >/dev/null 2>&1; then
     printf "\nInstalling Flatpak...\n\n"
     sudo apt install flatpak -y
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 fi
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 installed="Already installed"
 not_installed="Not installed"
 
-# Define array elements
+# Install status of each app, filled by checks() and shown in the menu
+declare -A array
+
 function checks() {
 
     docker_check=$(dpkg -s docker-ce 2>/dev/null | grep "Status: install ok installed")
@@ -54,7 +36,7 @@ function checks() {
 
     if [[ -n "$docker_check" && -n "$dockercompose_check" ]]; then
         array[docker]=$installed
-    else 
+    else
         array[docker]=$not_installed
     fi
 
@@ -147,37 +129,37 @@ to_install=$(zenity --list \
 )
 
 if [[ "$to_install" == *"Docker"* ]]; then
-    bash src/docker.sh 
+    bash src/docker.sh
 fi
 if [[ "$to_install" == *"Git"* ]]; then
-    bash src/git.sh 
+    bash src/git.sh
 fi
 if [[ "$to_install" == *"Node"* ]]; then
-    bash src/node.sh 
+    bash src/node.sh
 fi
 if [[ "$to_install" == *"Modern Terminal"* ]]; then
-    bash src/modern-terminal.sh 
+    bash src/modern-terminal.sh
 fi
 if [[ "$to_install" == *"Dracula Theme"* ]]; then
-    bash src/dracula-theme.sh 
+    bash src/dracula-theme.sh
 fi
 if [[ "$to_install" == *"VS Code"* ]]; then
-    bash src/vscode.sh 
+    bash src/vscode.sh
 fi
 if [[ "$to_install" == *"Insomnia"* ]]; then
-    bash src/insomnia.sh 
+    bash src/insomnia.sh
 fi
 if [[ "$to_install" == *"DBeaver"* ]]; then
-    bash src/dbeaver.sh 
+    bash src/dbeaver.sh
 fi
 if [[ "$to_install" == *"Obsidian"* ]]; then
-    bash src/obsidian.sh 
+    bash src/obsidian.sh
 fi
 if [[ "$to_install" == *"Discord"* ]]; then
-    bash src/discord.sh 
+    bash src/discord.sh
 fi
 if [[ "$to_install" == *"Telegram"* ]]; then
-    bash src/telegram.sh 
+    bash src/telegram.sh
 fi
 if [[ "$to_install" == *"Remove Junk Apps"* ]]; then
     bash src/remove-junk-apps.sh
