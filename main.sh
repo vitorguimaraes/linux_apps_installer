@@ -1,8 +1,5 @@
 #!/bin/bash
 
-printf "Please insert your root password: "
-read password
-
 # Define enum keys
 enum_keys=(
     all 
@@ -30,7 +27,7 @@ done
 flatpak_check=$(flatpak --version)
 if [[ "$flatpak_check" != *"Flatpak"* ]]; then
     printf "\nInstalling Flatpak...\n\n"
-    echo $password | sudo -S apt install flatpak -y
+    sudo apt install flatpak -y
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 fi
 
@@ -54,10 +51,6 @@ function checks() {
     flatpak_apps_check=$(flatpak list)
     vscode_check=$(dpkg -s code 2>/dev/null | grep "Status: install ok installed")
     dbeaver_check=$(dpkg -s dbeaver-ce 2>/dev/null | grep "Status: install ok installed")
-
-
-    echo $password | sudo -S touch /etc/default/apport
-    static_noise_check=$(ls /etc/modprobe.d)
 
     if [[ -n "$docker_check" && -n "$dockercompose_check" ]]; then
         array[docker]=$installed
@@ -107,7 +100,7 @@ function checks() {
         array[insomnia]=$not_installed
     fi
 
-    if [[ -n "$dbeaver_check" || "$flatpak_apps_check" == *"dbeaver"* ]]; then
+    if [[ -n "$dbeaver_check" ]]; then
         array[dbeaver]=$installed
     else
         array[dbeaver]=$not_installed
@@ -128,12 +121,6 @@ function checks() {
         array[telegram]=$installed
     else
         array[telegram]=$not_installed
-    fi
-
-    if [[ "$static_noise_check" == *"audio_disable_powersave.conf"* ]]; then
-        array[static_noise]=$installed
-    else
-        array[static_noise]=$not_installed
     fi
 }
 
@@ -156,7 +143,6 @@ to_install=$(zenity --list \
     False "Obsidian" "${array[obsidian]}" \
     False "Discord" "${array[discord]}" \
     False "Telegram" "${array[telegram]}" \
-    False "Static Noise" "${array[static_noise]}" \
     False "Remove Junk Apps" "" \
 )
 

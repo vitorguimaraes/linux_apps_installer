@@ -1,7 +1,0 @@
-alias ls="eza --icons -lh"
-alias lt="eza --icons -lh --tree --level=2"
-alias ll="eza --icons -lha"
-alias cat="batcat"
-alias udp="sudo apt update && sudo apt upgrade && sudo apt autoremove -y"
-alias grep="rg"
-alias nano="micro"
