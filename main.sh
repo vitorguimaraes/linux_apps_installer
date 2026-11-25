@@ -13,9 +13,6 @@ enum_keys=(
     telegram 
     dracula_theme 
     node
-    elixir 
-    phoenix 
-    postgresql 
     insomnia
     dbeaver 
     obsidian
@@ -43,9 +40,6 @@ not_installed="Not installed"
 # Define array elements
 function checks() {
 
-    elixir_check=$(whereis elixir)
-    phoenix_check=$(ls $HOME/.mix/archives | grep "phx")
-    postgresql_check=$(whereis psql)
     docker_check=$(dpkg -s docker-ce 2>/dev/null | grep "Status: install ok installed")
     dockercompose_check=$(dpkg -s docker-compose-plugin 2>/dev/null | grep "Status: install ok installed")
     git_check=$(whereis git)
@@ -62,24 +56,6 @@ function checks() {
 
     echo $password | sudo -S touch /etc/default/apport
     static_noise_check=$(ls /etc/modprobe.d)
-
-    if [[ "$elixir_check" == *"/opt/elixir/bin"* ]]; then
-        array[elixir]=$installed
-    else
-        array[elixir]=$not_installed
-    fi
-
-    if [[ "$phoenix_check" == *"phx_new"* ]]; then
-        array[phoenix]=$installed
-    else
-        array[phoenix]=$not_installed
-    fi
-
-    if [[ "$postgresql_check" == *"/usr/bin/psql"* ]]; then
-        array[postgresql]=$installed
-    else
-        array[postgresql]=$not_installed
-    fi
 
     if [[ -n "$docker_check" && -n "$dockercompose_check" ]]; then
         array[docker]=$installed
@@ -166,9 +142,6 @@ to_install=$(zenity --list \
     --title "Apps Installer" \
     --text "<b>Choose apps to install</b>" \
     --column "" --column "Apps" --column "Installed?"\
-    False "Elixir" "${array[elixir]}" \
-    False "Phoenix" "${array[phoenix]}" \
-    False "Postgres" "${array[postgresql]}" \
     False "Docker" "${array[docker]}" \
     False "Git" "${array[git]}" \
     False "Node" "${array[node]}" \
@@ -184,15 +157,6 @@ to_install=$(zenity --list \
     False "Remove Junk Apps" "" \
 )
 
-if [[ "$to_install" == *"Elixir"* ]]; then
-    bash src/asdf_elixir.sh 
-fi
-if [[ "$to_install" == *"Phoenix"* ]]; then
-    bash src/phoenix.sh 
-fi
-if [[ "$to_install" == *"Postgres"* ]]; then
-    bash src/postgresql.sh 
-fi
 if [[ "$to_install" == *"Docker"* ]]; then
     bash src/docker.sh 
 fi
