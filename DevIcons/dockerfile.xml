@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns='http://www.freedesktop.org/standards/shared-mime-info'>
     <mime-type type="text/x-dockerfile">
+        <comment>Dockerfile</comment>
         <sub-class-of type="text/plain"/>
-        <glob pattern="*ocker*"/>
+        <glob pattern="Dockerfile"/>
+        <glob pattern="Dockerfile.*"/>
+        <glob pattern="*.dockerfile"/>
+        <glob pattern="Containerfile"/>
     </mime-type>
 </mime-info>

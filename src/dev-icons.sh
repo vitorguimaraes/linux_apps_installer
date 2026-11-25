@@ -1,38 +1,40 @@
 #!/bin/bash
+set -euo pipefail
 
 printf "\nInstalling Dev Icons...\n"
 
-# Copy xml files
-sudo cp -v DevIcons/*.xml /usr/share/mime/packages
+# Works from any directory
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# copy png and svg files
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+# Every Yaru variant (Yaru-magenta-dark, ...) inherits its file type icons from plain Yaru
+SYSTEM_THEME="/usr/share/icons/Yaru"
+USER_THEME="$DATA_HOME/icons/Yaru"
+
+if [[ ! -d "$SYSTEM_THEME" ]]; then
+    printf "Yaru icon theme not found, nothing to override. Dev Icons not installed!\n"
+    exit 1
+fi
+
+# --- File types (Dockerfile) ---
+mkdir -p "$DATA_HOME/mime/packages"
+cp -v DevIcons/dockerfile.xml "$DATA_HOME/mime/packages/dev-icons.xml"
+update-mime-database "$DATA_HOME/mime"
+
+# --- Icons ---
+# Icon lookup only searches the folders listed in the theme's index.theme (<size>/mimetypes).
+# Files placed in the same folders of a user copy of the theme take priority over the system
+# ones, so mirror each Yaru mimetypes folder (all sizes) into ~/.local/share/icons/Yaru.
 count=0
-for directory in /usr/share/icons/*/*/; do 
-	if [[ "$directory" == *"x"* ]]; then
-		for file in DevIcons/*.png; do
-			sudo cp -v $file $directory
-			count=$((count+1))
-		done
-
-	elif [[ "$directory" == *"scalable"* ]]; then
-		for file in DevIcons/*.svg; do
-			sudo cp -v $file $directory
-			count=$((count+1))
-		done
-	fi
-done
-echo $count
-
-# update icon-cache
-for directory in /usr/share/icons/*/; do 
-    sudo gtk-update-icon-cache $directory
+for system_dir in "$SYSTEM_THEME"/*/mimetypes; do
+    relative="${system_dir#"$SYSTEM_THEME"/}"
+    mkdir -p "$USER_THEME/$relative"
+    for icon in DevIcons/*.svg DevIcons/*.png; do
+        cp "$icon" "$USER_THEME/$relative/"
+        count=$((count + 1))
+    done
 done
 
-# update mime-database
-sudo update-mime-database /usr/share/mime
-
-clear
-printf "Dev Icons installed!"
+printf "Dev Icons installed! (%d files copied to %s)\n" "$count" "$USER_THEME"
+printf "Restart the file manager to see them: nautilus -q\n"
 printf "\n*******************************************************************\n"
-sleep 1
-clear
